@@ -1,0 +1,68 @@
+---
+title: "Dataframe Seeding"
+output: html_notebook
+---
+
+Import de librerías
+```{r}
+library(readxl)
+```
+
+Configuraciones
+```{r}
+# Seeding
+dni_seed = 37754499
+set.seed(dni_seed);
+```
+
+Genero los datos a ser utilizados para el análisis supervisado
+```{r}
+bajopeso_excel <- read_excel(
+  "resources/original/bases_aiduba.xlsx", 
+  sheet = "bajopeso"
+)
+
+# Queremos el 80% de los datos acordes a nuestra semilla
+n_bajopeso = round(0.8 * nrow(bajopeso_excel)) 
+
+selected_bajopeso = sample(
+  1:nrow(bajopeso_excel), 
+  size=n_bajopeso, 
+  replace=FALSE
+)
+
+bajopeso_df = bajopeso_excel[selected_bajopeso,]
+
+write.csv(
+  bajopeso_df,
+  "resources/bajopeso.csv", 
+  row.names = FALSE
+)
+```
+
+
+Genero los datos a ser utilizados para el análisis no supervisado
+```{r}
+seguros_excel <- read_excel(
+  "resources/original/bases_aiduba.xlsx", 
+  sheet = "seguros"
+)
+
+# Queremos el 75% de los datos acordes a nuestra semilla
+n_seguros = round(0.75 * nrow(seguros_excel)) 
+
+selected_seguros = sample(
+  1:nrow(seguros_excel), 
+  size=n_seguros, 
+  replace=FALSE
+)
+
+seguros_df = seguros_excel[selected_seguros,]
+
+write.csv(
+  seguros_df,
+  "resources/seguros.csv", 
+  row.names = FALSE
+)
+```
+

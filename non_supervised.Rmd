@@ -1,0 +1,633 @@
+---
+title: "Clasificacion No Supervisada"
+output: html_notebook
+---
+
+Import de librerías
+```{r} 
+library(readxl)
+library(readr)
+library(dplyr)
+library(ggplot2)
+library(gridExtra) 
+library(mvnormtest)
+library(corpcor)
+library(Hotelling)
+library(DescTools)
+library(MASS)
+library(reshape2) 
+library(knitr) 
+library(corrplot)
+library(htmltools)
+library(ggrepel)
+library(ggbiplot)
+library(nortest)
+library(MASS)
+library(caret)
+library(e1071)
+library(cluster)
+library(pracma)
+library(ROCR)
+library(cluster)
+library(factoextra)
+library(NbClust)
+library(heplots)
+library("RColorBrewer")
+#library(biotools)
+#library(devtools)
+#library(klaR)
+```
+
+
+Configuraciones
+```{r}
+# Seeding
+dni_seed = 37754499
+set.seed(dni_seed);
+
+pastel1 = brewer.pal(n = 8, name = 'Pastel1')
+```
+
+
+Leemos nuestro dataframe y extraemos las columnas necesarias para nuestro análisis
+```{r}
+seguros_df <- read_csv("resources/seguros.csv")
+
+seguros_columns = c("edad","sexo","BMI","hijos","fuma","region","cargos","primadelseguro")
+seguros_df = seguros_df[,seguros_columns]
+```
+
+#-----Análisis Seguros-----
+#Resumen del dataset
+```{r}
+str(seguros_df)
+summary(seguros_df)
+```
+
+Descripción de Atributos:
+edad -> edad del asegurado (numérica)
+sexo -> sexo del asegurado (binaria)
+BMI -> body mass index del asegurado (numérica)
+hijos -> monto que se paga por hijos (numérica)
+fuma -> asumiremos una variable numérica que representa la cantidad de paquetes de cigarrillo que fuma un asegurado por mes.
+region -> a que región pertenece el asegurado (binaria)
+cargos -> cantidad de seguros contratados (numerica discreta)
+primadelseguro -> valor de la prima asegurada (numérica)
+
+Busco ver si hay datos incompletos
+```{r}
+apply(seguros_df, 2, function(x) any(is.na(x)))
+```
+
+Busco valores unicos por variable
+```{r}
+apply(seguros_df, 2, function(x) length(unique(x)))
+```
+
+#Análisis exploratorio
+#Histogramas
+```{r echo=TRUE} 
+columnas_categoricas = c(
+  "sexo", 
+  "region"
+)
+columnas_numericas = c(
+  "edad", 
+  "BMI",
+  "fuma", 
+  "cargos",
+  "hijos",
+  "primadelseguro"
+)
+
+seguros_numericas = seguros_df[,columnas_numericas]
+par(mfcol = c(1,length(seguros_numericas)))
+    for (k in 1:length(seguros_numericas)){
+      boxplot(seguros_numericas[k],main = names(seguros_numericas[k]))
+      grid()
+    }
+```
+
+#Estandarizo datos y grafico boxplots
+```{r echo=TRUE}
+datos_estandarizados = data.frame(
+  scale(seguros_numericas)
+)
+boxplot(
+  datos_estandarizados,
+  col = pastel1
+)
+```
+
+#Dispersograma
+```{r echo=TRUE}
+pairs(datos_estandarizados)
+```
+
+#Matriz de correlaciones
+```{r echo=TRUE}
+matriz_de_correlaciones = data.frame(
+  round(
+    cor(seguros_numericas),
+    3
+  )
+)
+matriz_de_correlaciones
+```
+
+#Selecciono el par de variables más correlacionadas entre sí que son prima del seguro y edad respectivamente, calculamos el promedio de correlación con las demás variables.
+```{r}
+mean(
+  abs(matriz_de_correlaciones$edad)
+)
+mean(
+  abs(matriz_de_correlaciones$primadelseguro)
+)
+```
+
+# Graficamos nuestro correlograma
+```{r}
+matriz_de_correlaciones = cor(seguros_numericas)
+corrplot(matriz_de_correlaciones, method = "number")
+```
+
+#Autovalores
+```{r echo=TRUE}
+desc_mat_cor = eigen(matriz_de_correlaciones)
+autovalores_cor = desc_mat_cor$values
+round(autovalores_cor,2)
+```
+
+#Variabilidad explicada por cada autovalor
+```{r echo=TRUE}
+variabilidad_cor = autovalores_cor/sum(autovalores_cor)
+round(variabilidad_cor,2)
+```
+
+# PCA
+```{r echo=TRUE}
+datos.pc = prcomp(
+  seguros_numericas,
+  scale = TRUE
+)
+round(datos.pc$sdev^2,2)
+```
+
+#Autovectores (en columna)
+```{r s, echo=TRUE}
+round(datos.pc$rotation,2) 
+```
+#Vector de medias
+```{r echo=TRUE}
+round(datos.pc$center,2) #vector de medias 
+```
+#Vector de desvíos
+```{r echo=TRUE}
+round(datos.pc$scale,2) #vector de desvíos
+```
+
+#Loadings
+```{r echo=TRUE}
+carga1 = data.frame(
+  cbind(
+    X=1:length(seguros_numericas),
+    primeracarga=data.frame(datos.pc$rotation)[,1]
+  )
+)
+carga2 = data.frame(
+  cbind(
+    X=1:length(seguros_numericas),
+    segundacarga=data.frame(datos.pc$rotation)[,2]
+  )
+)
+round(
+  cbind(carga1,carga2),
+  2
+)
+```
+
+#Primera carga
+```{r echo=TRUE}
+ggplot(
+  carga1, 
+  aes(X,primeracarga) ,
+  fill=tramo
+) + geom_bar ( 
+  stat="identity" ,
+  position="dodge" ,
+  fill ="royalblue" ,
+  width =0.5
+) + xlab( 'Tramo' ) + ylab('Primeracarga ' )
+
+```
+#Segunda carga
+```{r echo=TRUE}
+ggplot( 
+  carga2 , 
+  aes ( X , segundacarga ) ,
+  fill =X 
+) + geom_bar ( 
+  stat="identity" ,
+  position="dodge" ,
+  fill ="royalblue" ,
+  width =0.5 
+) + xlab('Tramo') + ylab('Segundacarga')
+
+```
+
+#Biplot
+```{r echo=TRUE}
+ggbiplot(
+  datos.pc, 
+  obs.scale=1, 
+  var.scale=1,
+  alpha=0.25
+) #cambiando el alfa?
+str(datos.pc)
+```
+
+
+#Análisis de cluster
+#Definición de funciones
+```{r}
+# se define función de escalamiento diferente de la tipica normal.
+esc01 <- function(x) { (x - min(x)) / (max(x) - min(x))} 
+# se define una funcion para calcular metricas que orientan sobre el número de clusters a elegir para el problema.
+metrica = function(datA_esc,kmax,f) {
+  
+  sil = array()
+  #sil_2 = array()
+  sse = array()
+  
+  datA_dist= dist(datA_esc,method = "euclidean", diag = FALSE, upper = FALSE, p = 2)
+  for ( i in  2:kmax) {
+    if (strcmp(f,"kmeans")==TRUE) {   #centroide: tipico kmeans
+      CL  = kmeans(datA_esc,centers=i,nstart=50,iter.max = kmax)
+      sse[i]  = CL$tot.withinss 
+      CL_sil = silhouette(CL$cluster, datA_dist)
+      sil[i]  = summary(CL_sil)$avg.width
+        }
+    if (strcmp(f,"pam")==TRUE){       #medoide: ojo porque este metodo tarda muchisimo 
+      CL = pam(x=datA_esc, k=i, diss = F, metric = "euclidean")
+      sse[i]  = CL$objective[1] 
+      sil[i]  = CL$silinfo$avg.width
+      }
+  }
+  sse
+  sil
+  return(data.frame(sse,sil))
+}
+```
+
+#Cantidad de clusters
+```{r echo=TRUE}
+kmax = 10
+
+m1 = metrica(
+  scale(seguros_numericas),
+  kmax,
+  "kmeans"
+)               
+```
+
+#Gráficos de los indicadores de clustering
+```{r echo=TRUE}
+par(mfrow=c(2,1))
+plot(
+  2:kmax, 
+  m1$sil[2:kmax],
+  col=1,type="b", 
+  pch = 19, 
+  frame = FALSE, 
+	xlab="Number of clusters K",
+	ylab="sil"
+) 
+
+plot(
+  2:kmax, 
+  m1$sse[2:kmax],
+  type="b", 
+  pch = 19, 
+  frame = FALSE, 
+	xlab="Number of clusters K",
+	ylab="sse"
+) 
+
+par(mfrow=c(1,1))
+
+```
+
+# Criterio F cantidad de clusters. 
+Buscando maximizar sil y minimizar sse, los valores de clusters entre 2 y 4 parecen significativos. 
+```{r}
+n=nrow(seguros_numericas)
+k=4
+
+(m1$sse[k]-m1$sse[k+1])/(m1$sse[k+1]/(n-k-1))
+
+qf(0.05, k+1, n, lower.tail=F)
+```
+
+Elegimos realizar 4 grupos dado que el silouette es alto y se produce una baja abrupta de la suma de cuadrados dentro del grupo
+
+# Cluster por K-means
+```{r echo=TRUE}
+#elegimos realizar 3 grupos
+CL  = kmeans(
+  scale(seguros_numericas),
+  k,
+  nstart=50,
+  iter.max = 100
+)
+seguros_numericas$kmeans = CL$cluster
+```
+
+#Es posible visualizarlo mejor en un biplot con las primeras dos componentes principales.
+```{r echo=TRUE}
+ggbiplot(
+  datos.pc, 
+  obs.scale=1 ,
+  var.scale=1, 
+  alpha=0.7,
+  groups = as.factor(seguros_numericas$kmeans)
+)  + scale_color_manual(
+  name="Cluster kmeans", 
+  values=pastel1,
+  labels=c("grupo 1", "grupo 2","grupo 3", "grupo4")
+  ) + theme(
+  legend.direction ="horizontal", 
+  legend.position = "top"
+)
+```
+
+#Nueva visualización
+```{r echo=TRUE}
+#lo hacemos finalmente para 2 grupos y lo visualizamos en un biplot
+CL  = kmeans(
+  scale(seguros_numericas),
+  2,
+  nstart=50,
+  iter.max = 10
+)
+
+seguros_numericas$kmeans = CL$cluster
+
+ggbiplot(
+  datos.pc, 
+  obs.scale=1 ,
+  var.scale=1, 
+  alpha=0.5,
+  groups = as.factor(seguros_numericas$kmeans) 
+) + scale_color_manual(
+  name="Cluster kmeans", 
+  values=pastel1,
+  labels=c("grupo 1", "grupo 2","grupo 3", "grupo4")
+) +  theme(
+  legend.direction ="horizontal", 
+  legend.position = "top"
+)
+```
+
+# S-Kmeans
+Debido a la presencia de outliers, preferimos ejecutar un Soft-kmeans y analizar la clasificación.
+Podemos observar en el biplot que la clasificación parece identificar mejor los 4 grupos (sin tanto siluohete)
+```{r}
+library(skmeans)
+SCL = skmeans(
+  scale(seguros_numericas),
+  k,
+  control = list(verbose = TRUE)
+)
+
+seguros_numericas$skmeans = SCL$cluster
+
+ggbiplot(
+  datos.pc, 
+  obs.scale=1 ,
+  var.scale=1, 
+  alpha=0.7,
+  groups = as.factor(seguros_numericas$skmeans) 
+) + scale_color_manual(
+  name="Cluster kmeans", 
+  values=pastel1,
+  labels=c("grupo 1", "grupo 2","grupo 3", "grupo4")
+) +  theme(
+  legend.direction ="horizontal", 
+  legend.position = "top"
+)
+```
+
+
+# Cluster Jerárquico
+```{r echo=TRUE}
+datos2=seguros_numericas[,-7] #quito columna "kmeans"
+datos2=scale(datos2)
+
+# Matriz de distancias euclídeas 
+mat_dist <- dist(x = datos2, method = "euclidean") 
+
+# Dendrogramas (según el tipo de segmentación jerárquica aplicada)  
+hc_complete  <- hclust(d = mat_dist, method = "complete")
+hc_average  <- hclust(d = mat_dist, method = "average")
+hc_single   <- hclust(d = mat_dist, method = "single")
+hc_ward     <- hclust(d = mat_dist, method = "ward.D2")
+#calculo del coeficiente de correlacion cofenético
+cor(x = mat_dist, cophenetic(hc_complete))
+cor(x = mat_dist, cophenetic(hc_average))
+cor(x = mat_dist, cophenetic(hc_single))
+cor(x = mat_dist, cophenetic(hc_ward))
+```
+#El método de average nos da el mejor valor de correlación cofenética.
+Metodos:
+1) average
+2) ward.D2
+3) single
+4) complete
+
+#Dendrograma con la técnica average
+```{r echo=TRUE}
+k = 4 # replico el valor K obtenido para el armado de mis clusters previamente
+
+# construccion de un dendrograma usando los resultados de la técnica de average
+plot(hc_average) #no se ve bien si hay muchos datos
+rect.hclust(
+  hc_average,
+  k=k, 
+  border="red"
+)
+grupos <- cutree(hc_average,k=k)
+```
+
+#Dendrograma con la técnica ward
+```{r echo=TRUE}
+# # construccion de un dendrograma usando los resultados de la técnica de Ward
+plot(hc_ward) #no se ve bien si hay muchos datos
+rect.hclust(
+  hc_ward, 
+  k=k, 
+  border="red"
+)
+grupos<-cutree(hc_ward,k=k)
+```
+
+#Visualizamos con 4 grupos el cluster jerárquico
+```{r echo=TRUE}
+ggbiplot(
+  datos.pc, 
+  obs.scale=1 ,
+  var.scale=1, 
+  alpha=0.5,
+  groups = as.factor(grupos)
+) + scale_color_manual(
+  name="Cluster jerárquico Ward", 
+  values=pastel1,
+  labels=c("grupo 1", "grupo 2", "grupo 3", "grupo 4")
+) +  theme(
+  legend.direction ="horizontal", 
+  legend.position = "top"
+)
+```
+
+#Boxplots de cada variable por grupo
+```{r}
+variables=seguros_numericas
+names(variables)[8]="cluster"
+#variables$cluster=factor(variables$cluster)
+variables$cluster=factor(grupos)
+
+ggplot(
+  variables,
+  aes(
+    x=cluster,
+    y=edad,
+    fill=cluster
+  )
+) + 
+  geom_boxplot() +
+  xlab("") +
+  scale_fill_brewer(
+    palette="Pastel1",
+    name="Cluster",
+    breaks=c("1","2","3","4"),
+    labels=c("1","2","3","4")
+  ) +
+  theme(
+    axis.text.x=element_blank(),
+    axis.ticks.x=element_blank()
+  )
+
+ggplot(
+  variables,
+  aes(
+    x=cluster,
+    y=BMI,
+    fill=cluster
+  )
+) +
+  geom_boxplot() +
+  xlab("") +
+  scale_fill_brewer(
+    palette="Pastel1",
+    name="Cluster",
+    breaks=c("1","2","3","4"),
+    labels=c("1","2","3","4")
+  )+
+  theme(
+    axis.text.x=element_blank(),
+    axis.ticks.x=element_blank()
+  )
+
+ggplot(
+  variables,
+  aes(
+    x=cluster,
+    y=fuma,
+    fill=cluster
+  )
+) +
+  geom_boxplot() +
+  xlab("") +
+  scale_fill_brewer(
+    palette="Pastel1",
+    name="Cluster",
+    breaks=c("1","2","3","4"),
+    labels=c("1","2","3","4")
+  )+
+  theme(
+    axis.text.x=element_blank(),
+    axis.ticks.x=element_blank()
+  )
+
+ggplot(
+  variables,
+  aes(
+    x=cluster,
+    y=cargos,
+    fill=cluster
+  )
+) +
+  geom_boxplot() +
+  xlab("") +
+  scale_fill_brewer(
+    palette="Pastel1",
+    name="Cluster",
+    breaks=c("1","2","3","4"),
+    labels=c("1","2","3","4")
+  )+
+  theme(
+    axis.text.x=element_blank(),
+    axis.ticks.x=element_blank()
+  )
+
+ggplot(
+  variables,
+  aes(
+    x=cluster,
+    y=hijos,
+    fill=cluster
+  )
+) +
+  geom_boxplot() +
+  xlab("") +
+  scale_fill_brewer(
+    palette="Pastel1",
+    name="Cluster",
+    breaks=c("1","2","3","4"),
+    labels=c("1","2","3","4")
+  )+
+  theme(
+    axis.text.x=element_blank(),
+    axis.ticks.x=element_blank()
+  )
+
+ggplot(
+  variables,
+  aes(
+    x=cluster,
+    y=primadelseguro,
+    fill=cluster
+  )
+) +
+  geom_boxplot() +
+  xlab("") +
+  scale_fill_brewer(
+    palette="Pastel1",
+    name="Cluster",
+    breaks=c("1","2","3","4"),
+    labels=c("1","2","3","4")
+  )+
+  theme(
+    axis.text.x=element_blank(),
+    axis.ticks.x=element_blank()
+  )
+
+```
+
+#Dispersograma de las variables numéricas, mostrando a que cluster pertenecen 
+```{r}
+pairs(
+  x = variables[, c(1,2,3,4,5,6)], 
+  col = pastel1[variables$cluster], 
+  pch = 19
+)
+```

@@ -1,0 +1,1393 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+Import de librerías
+```{r} 
+library(readxl)
+library(readr)
+library(dplyr)
+library(ggplot2)
+library(gridExtra) 
+library(mvnormtest)
+library(corpcor)
+library(Hotelling)
+library(DescTools)
+library(MASS)
+library(reshape2) 
+library(knitr) 
+library(corrplot)
+library(htmltools)
+library(ggrepel)
+library(ggbiplot)
+library(nortest)
+library(MASS)
+library(caret)
+library(e1071)
+library(cluster)
+library(pracma)
+library(ROCR)
+library(cluster)
+library(factoextra)
+library(NbClust)
+library(heplots)
+library("RColorBrewer")
+library(FactoMineR)
+library(factoextra)
+library(anacor)
+#library(biotools)
+#library(devtools)
+#library(klaR)
+```
+
+Configuraciones
+```{r}
+# Seeding
+dni_seed = 37754499
+set.seed(dni_seed);
+
+pastel1 = brewer.pal(n = 8, name = 'Pastel1')
+dark2 = brewer.pal(n = 8, name = 'Dark2')
+yellowOrRed = brewer.pal(n = 8, name = 'YlOrRd')
+```
+
+Leemos nuestro dataframe y extraemos las columnas necesarias para nuestro análisis
+```{r}
+bajopeso_df <- read_csv("resources/bajopeso.csv")
+
+bajopeso_columns = c("ID","LOW","AGE","LWT","RACE","SMOKE","PTL","HT","UI","FTV")
+bajopeso_df = bajopeso_df[,bajopeso_columns]
+```
+
+#-----Análisis Exploratorio-----
+Resumen del dataset
+```{r}
+str(bajopeso_df)
+```
+```{r}
+summary(bajopeso_df)
+```
+
+Busco ver si hay datos incompletos
+```{r}
+apply(bajopeso_df, 2, function(x) any(is.na(x)))
+```
+
+Busco valores unicos por variable
+```{r}
+apply(bajopeso_df, 2, function(x) length(unique(x)))
+```
+
+Evaluamos la atipicidad de los valores en el campo PTL
+```{r}
+unique(bajopeso_df$PTL)
+odd_PTL_index = which(bajopeso_df$PTL == 3)
+bajopeso_df[odd_PTL_index,]
+```
+
+
+Convierto en factor mi variable categorica TARGET que es LOW
+```{r}
+bajopeso_df[,"LOW"]=as.factor(bajopeso_df$LOW)
+```
+
+## Histogramas y gráficos de barras
+### Variables numéricas
+```{r}
+ggplot(
+  data = bajopeso_df, 
+  aes(x = AGE, fill = LOW)
+) + 
+  geom_histogram(position = "identity", alpha = 0.5) +
+  scale_fill_brewer(
+    palette="Pastel1",
+    name="Bebé con bajopeso",
+    breaks=c("0","1"),
+    labels=c("no","sí")
+  ) 
+ggplot(
+  data = bajopeso_df, 
+  aes(x = LWT, fill = LOW)
+) + 
+  geom_histogram(position = "identity", alpha = 0.5) +
+  scale_fill_brewer(
+    palette="Pastel1",
+    name="Bebé con bajopeso",
+    breaks=c("0","1"),
+    labels=c("no","sí")
+  ) 
+```
+
+### Variables categóricas
+```{r}
+ggplot(
+  data = bajopeso_df, 
+  aes(x = RACE, fill = LOW)
+) + 
+  geom_histogram(position = "identity", alpha = 0.5) +
+  scale_fill_brewer(
+    palette="Pastel1",
+    name="Bebé con bajopeso",
+    breaks=c("0","1"),
+    labels=c("no","sí")
+  ) 
+ggplot(
+  data = bajopeso_df, 
+  aes(x = SMOKE, fill = LOW)
+) + 
+  geom_histogram(position = "identity", alpha = 0.5) +
+  scale_fill_brewer(
+    palette="Pastel1",
+    name="Bebé con bajopeso",
+    breaks=c("0","1"),
+    labels=c("no","sí")
+  ) 
+ggplot(
+  data = bajopeso_df, 
+  aes(x = PTL, fill = LOW)
+) + 
+  geom_histogram(position = "identity", alpha = 0.5) +
+  scale_fill_brewer(
+    palette="Pastel1",
+    name="Bebé con bajopeso",
+    breaks=c("0","1"),
+    labels=c("no","sí")
+  ) 
+ggplot(
+  data = bajopeso_df, 
+  aes(x = HT, fill = LOW)
+) + 
+  geom_histogram(position = "identity", alpha = 0.5) +
+  scale_fill_brewer(
+    palette="Pastel1",
+    name="Bebé con bajopeso",
+    breaks=c("0","1"),
+    labels=c("no","sí")
+  ) 
+ggplot(
+  data = bajopeso_df, 
+  aes(x = UI, fill = LOW)
+) + 
+  geom_histogram(position = "identity", alpha = 0.5) +
+  scale_fill_brewer(
+    palette="Pastel1",
+    name="Bebé con bajopeso",
+    breaks=c("0","1"),
+    labels=c("no","sí")
+  ) 
+ggplot(
+  data = bajopeso_df, 
+  aes(x = FTV, fill = LOW)
+) + 
+  geom_histogram(position = "identity", alpha = 0.5) +
+  scale_fill_brewer(
+    palette="Pastel1",
+    name="Bebé con bajopeso",
+    breaks=c("0","1"),
+    labels=c("no","sí")
+  ) 
+```
+
+## Barplots con categóricas
+```{r}
+ggplot(
+  bajopeso_df, 
+  aes(x=LOW, y=RACE ,fill=LOW)
+) + 
+  geom_bar(stat = "identity") +
+  xlab("")+
+  scale_fill_brewer(
+    palette="Pastel1",
+    name="Bebé con bajopeso",
+    breaks=c("0","1"),
+    labels=c("no","sí")
+  ) +
+  theme(
+    axis.text.x=element_blank(),
+    axis.ticks.x=element_blank()
+  )
+
+ggplot(
+  bajopeso_df, 
+  aes(x=LOW, y=SMOKE ,fill=LOW)
+) + 
+  geom_bar(stat = "identity") +
+  xlab("")+
+  scale_fill_brewer(
+    palette="Pastel1",
+    name="Bebé con bajopeso",
+    breaks=c("0","1"),
+    labels=c("no","sí")
+  ) +
+  theme(
+    axis.text.x=element_blank(),
+    axis.ticks.x=element_blank()
+  )
+
+ggplot(
+  bajopeso_df, 
+  aes(x=LOW, y=PTL ,fill=LOW)
+) + 
+  geom_bar(stat = "identity") +
+  xlab("")+
+  scale_fill_brewer(
+    palette="Pastel1",
+    name="Bebé con bajopeso",
+    breaks=c("0","1"),
+    labels=c("no","sí")
+  ) +
+  theme(
+    axis.text.x=element_blank(),
+    axis.ticks.x=element_blank()
+  )
+
+ggplot(
+  bajopeso_df, 
+  aes(x=LOW, y=HT ,fill=LOW)
+) + 
+  geom_bar(stat = "identity") +
+  xlab("")+
+  scale_fill_brewer(
+    palette="Pastel1",
+    name="Bebé con bajopeso",
+    breaks=c("0","1"),
+    labels=c("no","sí")
+  ) +
+  theme(
+    axis.text.x=element_blank(),
+    axis.ticks.x=element_blank()
+  )
+
+ggplot(
+  bajopeso_df, 
+  aes(x=LOW, y=UI ,fill=LOW)
+) + 
+  geom_bar(stat = "identity") +
+  xlab("")+
+  scale_fill_brewer(
+    palette="Pastel1",
+    name="Bebé con bajopeso",
+    breaks=c("0","1"),
+    labels=c("no","sí")
+  ) +
+  theme(
+    axis.text.x=element_blank(),
+    axis.ticks.x=element_blank()
+  )
+
+ggplot(
+  bajopeso_df, 
+  aes(x=LOW, y=FTV ,fill=LOW)
+) + 
+  geom_bar(stat = "identity") +
+  xlab("")+
+  scale_fill_brewer(
+    palette="Pastel1",
+    name="Bebé con bajopeso",
+    breaks=c("0","1"),
+    labels=c("no","sí")
+  ) +
+  theme(
+    axis.text.x=element_blank(),
+    axis.ticks.x=element_blank()
+  )
+
+```
+
+## Dispersograma de las variables numéricas, mostrando a qué clase pertenecen 
+```{r}
+pairs(
+  x = bajopeso_df[, c(3,4)], 
+  col = pastel1[bajopeso_df$LOW], 
+  pch = 19
+)
+```
+
+## Boxplot para cada una de las variables numéricas por clase
+```{r}
+ggplot(
+  bajopeso_df,
+  aes(x=LOW,y=AGE,fill=LOW)
+) + geom_boxplot() + 
+  xlab("")+
+  scale_fill_brewer(
+    palette="Pastel1",
+    name="Bebé con bajopeso",
+    breaks=c("0","1"),
+    labels=c("no","sí")
+  ) +
+  theme(
+    axis.text.x=element_blank(),
+    axis.ticks.x=element_blank()
+  )
+
+ggplot(
+  bajopeso_df,
+  aes(x=LOW,y=LWT,fill=LOW)
+) + geom_boxplot() +
+  xlab("")+
+  scale_fill_brewer(
+    palette="Pastel1",
+    name="Bebé con bajopeso",
+    breaks=c("0","1"),
+    labels=c("no","sí")
+  ) +
+  theme(
+    axis.text.x=element_blank(),
+    axis.ticks.x=element_blank()
+  )
+```
+
+#-----Análisis Componentes Principales-----
+Analizamos normalidad multivariada para variables numéricas (tomamos AGE y LWT)
+```{r}
+mshapiro.test(
+  t(bajopeso_df[,c(3,4)])
+)
+#No es normal multivariada
+```
+
+Verificamos el supuesto de normalidad multivariada por población/grupo. Vemos que el mismo no se cumple.
+```{r}
+mshapiro.test(
+  t(bajopeso_df[bajopeso_df$LOW==0,c(3,4)])
+)
+mshapiro.test(
+  t(bajopeso_df[bajopeso_df$LOW==1,c(3,4)])
+)
+#No se cumple normalidad multivariada
+```
+
+Como rechazamos normalidad, verificamos el supuesto de homoscedasticidad multivariada utilizando el test de Levene. Como los p-valores de nuestros test son superiores a 0.05 no podemos rechazar la hipotesis nula que las varianzas son iguales.
+```{r}
+leveneTests(
+  bajopeso_df[, 3:4], 
+  bajopeso_df$LOW
+)
+```
+
+Prueba de igualdad de vectores medios. 
+No se cumplen los supuestos para que el test tenga validez estadística.
+```{r}
+fitProd = hotelling.test(
+  .~ LOW, 
+  data = bajopeso_df[,c(2,3,4)]
+) 
+fitProd 
+# No se cumplen los supuestos para que el test tenga validez estadística.
+```
+
+Generamos gráficos de densidad.
+```{r}
+ggplot(
+  data = bajopeso_df,
+  aes(x = AGE)
+) + geom_density(
+  aes(colour = LOW)
+) + theme_bw() 
+
+ggplot(
+  data = bajopeso_df,
+  aes(x = LWT)
+) + geom_density(
+  aes(colour = LOW)
+) + theme_bw() 
+```
+
+Si bien no es válida como matriz de correlación, observamos alguna asociación entre variables y TARGET (LOW) aunque son un poco debiles
+```{r}
+f=as.data.frame(
+  as.numeric(bajopeso_df$LOW)
+)
+names(f)="LOW"
+f2 = cbind(f,bajopeso_df[,3:10])
+f2[,1]= f2[,1]-1
+b= cor(f2)
+corrplot(b, method = "number")
+```
+
+Ejecutamos un análisis de PCA
+```{r}
+a = cor(bajopeso_df[,c(3,4)])
+desc_mat_cor = eigen(a)
+autovalores_cor = desc_mat_cor$values
+round(autovalores_cor,3)
+```
+
+Variabilidad explicada por cada autovalor
+```{r}
+variabilidad_cor = autovalores_cor/sum(autovalores_cor)
+round(variabilidad_cor,3)
+```
+
+Ejecutamos un Analisis deComponentes principales
+```{r echo=TRUE}
+datos.pc = prcomp(
+  bajopeso_df[,c(3,4)],
+  scale = TRUE
+)
+round(datos.pc$sdev^2,3)
+```
+
+```{r echo=TRUE}
+round(datos.pc$rotation,3) #autovectores (en columna)
+```
+
+```{r echo=TRUE}
+round(datos.pc$center,3) #vector de medias 
+```
+
+```{r echo=TRUE}
+round(datos.pc$scale,3) #vector de desvios
+```
+
+```{r echo=TRUE}
+#Loadings
+carga1 = data.frame(
+  cbind(
+    X=1:(length(datos.pc)-1),
+    primeracarga = data.frame(datos.pc$rotation)[,1])
+)
+carga2 = data.frame(
+  cbind(
+    X=1:(length(datos.pc)-1),
+    segundacarga=data.frame(datos.pc$rotation)[,2])
+)
+
+round(
+  cbind(carga1,carga2),
+  2
+)
+```
+
+```{r echo=TRUE}
+ggplot(
+  carga1, 
+  aes(X,primeracarga),
+  fill=tramo 
+) + geom_bar ( 
+  stat="identity" ,
+  position="dodge" ,
+  fill ="royalblue" ,
+  width =0.5 
+) + xlab( 'Tramo' ) + ylab('Primeracarga ' )
+
+```
+
+```{r echo=TRUE}
+ggplot(
+  carga2, 
+  aes(X,segundacarga),
+  fill=tramo 
+) + geom_bar ( 
+  stat="identity" ,
+  position="dodge" ,
+  fill ="royalblue" ,
+  width =0.5 
+) + xlab( 'Tramo' ) + ylab('Segundacarga ' )
+
+```
+
+Visualizamos un Biplot de nuestros datos
+```{r echo=TRUE}
+ggbiplot(
+  datos.pc, 
+  obs.scale=0.1 ,
+  var.scale=1,
+  alpha=1,
+  groups=factor(bajopeso_df$LOW)
+) +
+  scale_color_manual(
+    name="Bebe con bajopeso", 
+    values=pastel1,
+    labels=c("NO", "SI")
+  ) +  theme(
+    legend.direction ="horizontal", 
+    legend.position = "top"
+  )
+```
+
+
+#-----Análisis de Correspondencia Multiple-----
+Ejecutamos un análisis de correspondencias para poder conocer que atributos explican mejor la variabilidad de nuestros datos
+
+## ACM con datos categóricos como dummies
+Generó dummies para las variables categóricas
+```{r}
+#RACE
+bajopeso_df$raza_blanca = ifelse(bajopeso_df$RACE == 1, 1, 0)
+bajopeso_df$raza_negra = ifelse(bajopeso_df$RACE == 2, 1, 0)
+bajopeso_df$raza_otra = ifelse(bajopeso_df$RACE == 3, 1, 0)
+
+#PTL
+bajopeso_df$had_PTL = ifelse(bajopeso_df$PTL != 0, 1, 0)
+
+#FTV (definimos niveles none, bajo y alto debido a la distribución de las frecuencias relativas de la variable)
+bajopeso_df$FTV_cero = ifelse(bajopeso_df$FTV == 0, 1, 0)
+bajopeso_df$FTV_bajo = ifelse(bajopeso_df$RACE == 1, 1, 0)
+bajopeso_df$FTV_alto = ifelse(bajopeso_df$RACE > 1, 1, 0)
+```
+
+Generamos un nuevo dataframe con las columnas que vamos a usar en el ACM
+```{r}
+columnas_acm = c(
+  "LOW", 
+  "SMOKE",
+  "HT",
+  "UI",
+  "raza_blanca",
+  "raza_negra",
+  "raza_otra",
+  "had_PTL",
+  "FTV_cero",
+  "FTV_bajo",
+  "FTV_alto"
+)
+
+bajopeso_acm_df = bajopeso_df[,columnas_acm]
+```
+
+Es necesario factorizar las columnas de nuestro dataframe para ACM
+```{r}
+# Convertimos todas las variables de nuestro dataframe a factor
+bajopeso_acm_df[,names(bajopeso_acm_df)] <- lapply(bajopeso_acm_df[,names(bajopeso_acm_df)] , factor)
+
+summary(bajopeso_acm_df)
+```
+
+Busco analizar la independencia de mis variables categóricas con respecto a mi target (LOW) aplicando el Test Chi Cuadrado de Pearson.
+En función de los resultados, puedo rechazar la hipotesis nula (que las variables analizadas son independientes) cuando el p-valor es inferior a 0,05.
+Rechazo independencia para:
+-SMOKE
+-tbl_had_PTL
+Variables interesantes:
+-UI
+-tbl_raza_blanca
+-tbl_FTV_bajo
+-tbl_FTV_alto
+```{r}
+# SMOKE
+tbl_smoke = table(bajopeso_acm_df$LOW, bajopeso_acm_df$SMOKE)
+chisq.test(tbl_smoke)
+# HT
+tbl_ht = table(bajopeso_acm_df$LOW, bajopeso_acm_df$HT)
+chisq.test(tbl_ht)
+# UI
+tbl_ui = table(bajopeso_acm_df$LOW, bajopeso_acm_df$UI)
+chisq.test(tbl_ui)
+# raza_blanca
+tbl_raza_blanca = table(bajopeso_acm_df$LOW, bajopeso_acm_df$raza_blanca)
+chisq.test(tbl_raza_blanca)
+# raza_negra
+tbl_raza_negra = table(bajopeso_acm_df$LOW, bajopeso_acm_df$raza_negra)
+chisq.test(tbl_raza_negra)
+# raza_otra
+tbl_raza_otra = table(bajopeso_acm_df$LOW, bajopeso_acm_df$raza_otra)
+chisq.test(tbl_raza_otra)
+# had_PTL
+tbl_had_PTL = table(bajopeso_acm_df$LOW, bajopeso_acm_df$had_PTL)
+chisq.test(tbl_had_PTL)
+# FTV_cero
+tbl_FTV_cero = table(bajopeso_acm_df$LOW, bajopeso_acm_df$FTV_cero)
+chisq.test(tbl_FTV_cero)
+# FTV_bajo
+tbl_FTV_bajo = table(bajopeso_acm_df$LOW, bajopeso_acm_df$FTV_bajo)
+chisq.test(tbl_FTV_bajo)
+# FTV_alto
+tbl_FTV_alto = table(bajopeso_acm_df$LOW, bajopeso_acm_df$FTV_alto)
+chisq.test(tbl_FTV_alto)
+```
+
+Analizamos correlación entre nuestras variables utilizando CramerV
+```{r}
+library(DescTools)
+library(corrplot)
+# Use CramerV as input for corrplot
+bajopeso_acm_cor_matrix = DescTools::PairApply(bajopeso_acm_df, DescTools::CramerV)
+rounded_bajopeso_acm_cor_matrix = round(bajopeso_acm_cor_matrix,2)
+corrplot(
+  bajopeso_acm_cor_matrix
+)
+```
+
+Considerando que solo puedo rechazar independencia para 2 variables busco incorporar los atributos numéricos mediante su discretización para ver de enriquecer el dataframe para ACM.
+Categorizamos las variables AGE y LWT.
+Luego de analizar los histogramas y los boxplots decidimos hacer una discretización de 2 breaks para cada variable.
+```{r}
+# Discretización de variables y asignación a bajopeso_df
+xs_age = quantile(bajopeso_df$AGE, seq(0,1,1/2))
+bajopeso_df$C_AGE <- cut(
+  bajopeso_df$AGE, 
+  breaks=xs_age,
+  labels=c("edad_joven","edad_avanzada"),
+  include.lowest = TRUE
+)
+xs_lwt = quantile(bajopeso_df$LWT, seq(0,1,1/2))
+bajopeso_df$C_LWT <- cut(
+  bajopeso_df$LWT, 
+  breaks=xs_lwt,
+  labels=c("peso_bajo","peso_alto"),
+  include.lowest = TRUE
+)
+
+# Asignamos variables dummies acordes a mis nuevas variables categoricas incorporandolas a bajopeso_df
+#C_AGE
+bajopeso_df$edad_joven = ifelse(bajopeso_df$C_AGE == "edad_joven", 1, 0)
+bajopeso_df$edad_avanzada = ifelse(bajopeso_df$C_AGE == "edad_avanzada", 1, 0)
+#C_LWT
+bajopeso_df$peso_bajo = ifelse(bajopeso_df$C_LWT == "peso_bajo", 1, 0)
+bajopeso_df$peso_alto = ifelse(bajopeso_df$C_LWT == "peso_alto", 1, 0)
+
+```
+
+Actualizamos el dataframe para ACM
+```{r}
+columnas_acm = c(
+  "LOW", 
+  "SMOKE",
+  "HT",
+  "UI",
+  "raza_blanca",
+  "raza_negra",
+  "raza_otra",
+  "had_PTL",
+  "FTV_cero",
+  "FTV_bajo",
+  "FTV_alto",
+  "edad_joven",
+  "edad_avanzada",
+  "peso_bajo",
+  "peso_alto"
+)
+
+bajopeso_acm_df = bajopeso_df[,columnas_acm]
+```
+
+Refactorizamos el dataframe
+```{r}
+# Convertimos todas las variables de nuestro dataframe a factor
+bajopeso_acm_df[,names(bajopeso_acm_df)] <- lapply(bajopeso_acm_df[,names(bajopeso_acm_df)] , factor)
+
+summary(bajopeso_acm_df)
+```
+
+Analizamos la independencia de nuestras nuevas variables categoricas incorporadas al modelo respecto de nuestro TARGET (LOW).
+No podemos rechazar independencia para nuestras variables.
+Las variables de pesos parecen ser las mas cercanas a resultar interesantes:
+-peso_bajo
+-peso_alto
+```{r}
+# edad_joven
+tbl_edad_joven = table(bajopeso_acm_df$LOW, bajopeso_acm_df$edad_joven)
+chisq.test(tbl_edad_joven)
+# edad_avanzada
+tbl_edad_avanzada = table(bajopeso_acm_df$LOW, bajopeso_acm_df$edad_avanzada)
+chisq.test(tbl_edad_avanzada)
+# peso_bajo
+tbl_peso_bajo = table(bajopeso_acm_df$LOW, bajopeso_acm_df$peso_bajo)
+chisq.test(tbl_peso_bajo)
+# peso_alto
+tbl_peso_alto = table(bajopeso_acm_df$LOW, bajopeso_acm_df$peso_alto)
+chisq.test(tbl_peso_alto)
+```
+
+Volvemos a analizar correlación entre nuestras variables utilizando CramerV
+```{r}
+library(DescTools)
+library(corrplot)
+# Use CramerV as input for corrplot
+bajopeso_acm_cor_matrix = DescTools::PairApply(bajopeso_acm_df, DescTools::CramerV)
+rounded_bajopeso_acm_cor_matrix = round(bajopeso_acm_cor_matrix,2)
+corrplot(
+  bajopeso_acm_cor_matrix
+)
+```
+
+Ordenamos las variables a ser utilizadas para el ACM ordenando los resultados de la matriz de correlación.
+```{r}
+variables_acm = c(
+  "LOW",
+  "had_PTL",
+  "SMOKE",
+  "UI",
+  "peso_bajo",
+  "peso_alto",
+  "raza_blanca",
+  "FTV_bajo",
+  "FTV_alto",
+  "raza_negra",
+  "edad_joven",
+  "edad_avanzada",
+  "HT",
+  "FTV_cero",
+  "raza_otra"
+)
+
+```
+
+Ejecutamos el ACM
+```{r}
+bajopeso.mca = MCA(bajopeso_acm_df[,variables_acm], quali.sup=1 , graph=F)
+```
+
+Obtenemos los autovalores de MCA
+```{r}
+eig.val <- get_eigenvalue(bajopeso.mca)
+eig.val
+```
+
+Generamos un grafico de sedimentación de nuestro análisis
+```{r}
+fviz_screeplot(
+  bajopeso.mca, 
+  addlabels = TRUE, 
+  ylim = c(0, 45)
+)
+```
+
+Visualizamos las contribuciones de nuestras variables y de los individuos
+```{r}
+fviz_contrib(
+  bajopeso.mca,
+  choice="var",
+  axes=1, 
+  top = 14,
+  fill="royalblue",
+  color ="black"
+) + theme_gray() + 
+  theme(
+    axis.text.x = element_text(angle=20)
+  )
+
+
+fviz_contrib(
+  bajopeso.mca,
+  choice="ind",
+  axes=1, 
+  fill="royalblue",
+  color ="black"
+) + theme_gray()
+
+fviz_contrib(
+  bajopeso.mca,
+  axes = 2,
+  top = 14,
+  choice="var",
+  fill="royalblue",
+  color ="black"
+) + theme_gray() + 
+  theme(
+    axis.text.x = element_text(angle=20)
+  )
+
+
+fviz_contrib(
+  bajopeso.mca,
+  axes = 2,
+  choice="ind",
+  fill="royalblue",
+  color ="black"
+) + theme_gray()
+
+
+```
+
+Visualizamos la variabilidad de nuestras categorias y nuestros individuos en las primeras 2 Dimensiones.
+```{r}
+fviz_mca_var(
+  bajopeso.mca,
+  col.var="contrib" , 
+  gradient.cols = c("black", "red"),
+  repel = TRUE
+) + theme(
+    legend.direction ="horizontal", 
+    legend.position = "top"
+  )
+
+fviz_mca_ind(
+  bajopeso.mca,
+  habillage = bajopeso_acm_df$LOW,
+  label = "none",
+  repel = TRUE,
+  addEllipses=TRUE,
+  ellipse.level=0.95
+) + 
+  scale_color_manual(
+    name="Bebe con bajopeso", 
+    values=pastel1,
+    labels=c("NO", "SI")
+  ) +  theme(
+    legend.direction ="horizontal", 
+    legend.position = "top"
+  )
+
+fviz_mca_biplot(
+  bajopeso.mca,
+  label = "var",
+  col.var = "orange",
+  select.var = list(contrib = 14),
+  repel = TRUE,
+  habillage = bajopeso_acm_df$LOW
+) + 
+  scale_color_manual(
+    name="Bebe con bajopeso", 
+    values=pastel1,
+    labels=c("NO", "SI")
+  ) +  theme(
+    legend.direction ="horizontal", 
+    legend.position = "top"
+  )
+```
+
+Visualizamos la variabilidad de nuestras categorias y nuestros individuos en las siguientes 2 Dimensiones.
+```{r}
+fviz_mca_var(
+  bajopeso.mca,
+  axes = c(3,4),
+  col.var="contrib" , 
+  select.var = list(contrib = 10),
+  gradient.cols = c("black", "red"),
+  repel = TRUE
+) + theme(
+    legend.direction ="horizontal", 
+    legend.position = "top"
+  )
+
+fviz_mca_ind(
+  bajopeso.mca,
+  axes = c(3,4),
+  habillage = bajopeso_acm_df$LOW,
+  label = "none",
+  repel = TRUE,
+  addEllipses=TRUE,
+  ellipse.level=0.95
+) + 
+  scale_color_manual(
+    name="Bebe con bajopeso", 
+    values=pastel1,
+    labels=c("NO", "SI")
+  ) +  theme(
+    legend.direction ="horizontal", 
+    legend.position = "top"
+  )
+
+fviz_mca_biplot(
+  bajopeso.mca,
+  axes = c(3,4),
+  label = "var",
+  col.var = "orange",
+  select.var = list(contrib = 10),
+  repel = TRUE,
+  habillage = bajopeso_acm_df$LOW
+) + 
+  scale_color_manual(
+    name="Bebe con bajopeso", 
+    values=pastel1,
+    labels=c("NO", "SI")
+  ) +  theme(
+    legend.direction ="horizontal", 
+    legend.position = "top"
+  )
+```
+
+Genero una matriz disyuntiva
+```{r}
+matriz_disyuntiva = tab.disjonctif(bajopeso_acm_df) 
+```
+
+#-----Clasificación-----
+Genero un nuevo dataframe con los valores de las variables dummy utilizadas para ACM
+```{r}
+variables_dummy = c(
+  "LOW",
+  "SMOKE",
+  "HT",
+  "UI",
+  "raza_blanca",
+  "raza_negra",
+  "raza_otra",
+  "had_PTL",
+  "FTV_cero",
+  "FTV_bajo",
+  "FTV_alto",
+  "edad_joven",
+  "edad_avanzada",
+  "peso_bajo",
+  "peso_alto"
+)
+
+bajopeso_dummy_df = bajopeso_df[,variables_dummy]
+```
+
+Genero un dataframe utilizando los valores de las coordenadas de los individuos de mi ACM para evaluar dimensiones
+```{r}
+bajopeso_acm_supervisado_df <- cbind.data.frame(
+    bajopeso_df$LOW, 
+    bajopeso.mca$ind$coord
+)
+names(bajopeso_acm_supervisado_df)[1] = "LOW"
+```
+
+## Armado de dataframes TRAIN y VALIDATION
+Partición train y val 70-30 de forma estratificada por variable a predecir.
+Vamos a utilizar el nuevo dataframe bajopeso_dummy_df y bajopeso_acm_supervisado_df
+```{r}
+train <- data.frame(
+  createDataPartition(
+    y = bajopeso_dummy_df$LOW, 
+    p = 0.7, 
+    list = FALSE, 
+    times = 1
+  )
+)
+train_ind = train$Resample1
+
+train_acm <- data.frame(
+  createDataPartition(
+    y = bajopeso_acm_supervisado_df$LOW, 
+    p = 0.7, 
+    list = FALSE, 
+    times = 1
+  )
+)
+train_acm_ind = train_acm$Resample1
+```
+
+Evaluamos la cantidad de casos asociados a bajopeso en nuestros datasets de  entrenamiento y validación
+```{r}
+# % en entrenamiento
+sum(
+  as.numeric(
+    bajopeso_dummy_df[train_ind,]$LOW)-1)/nrow(bajopeso_dummy_df[train_ind,]
+) 
+sum(
+  as.numeric(
+    bajopeso_acm_supervisado_df[train_acm_ind,]$LOW)-1)/nrow(bajopeso_acm_supervisado_df[train_acm_ind,]
+) 
+# % en validación
+sum(
+  as.numeric(bajopeso_dummy_df[-train_ind,]$LOW)-1)/nrow(bajopeso_dummy_df[-train_ind,]
+) 
+sum(
+  as.numeric(bajopeso_acm_supervisado_df[-train_acm_ind,]$LOW)-1)/nrow(bajopeso_acm_supervisado_df[-train_acm_ind,]
+)
+```
+
+Generamos nuestros dataframes en base a los indices de partición generados
+```{r}
+df_bajopeso_train = bajopeso_dummy_df[train_ind,] 
+df_bajopeso_val = bajopeso_dummy_df[-train_ind,] 
+
+df_bajopeso_train_acm = bajopeso_acm_supervisado_df[train_acm_ind,] 
+df_bajopeso_val_acm = bajopeso_acm_supervisado_df[-train_acm_ind,] 
+```
+
+Verificamos que las distribuciones en nuestro set de datos y nuestras particiones sean similares
+```{r}
+# Distribución porcentual en entrenamiento
+table(df_bajopeso_train$LOW)/nrow(df_bajopeso_train) # Distribución porcentual en entrenamiento
+# Distribución porcentual en validación
+table(df_bajopeso_val$LOW)/nrow(df_bajopeso_val)
+# Distribución porcentual en el total
+table(bajopeso_dummy_df$LOW)/nrow(bajopeso_dummy_df)
+
+# Distribución porcentual en entrenamiento
+table(df_bajopeso_train_acm$LOW)/nrow(df_bajopeso_train_acm) # Distribución porcentual en entrenamiento
+# Distribución porcentual en validación
+table(df_bajopeso_val_acm$LOW)/nrow(df_bajopeso_val_acm)
+# Distribución porcentual en el total
+table(bajopeso_acm_supervisado_df$LOW)/nrow(bajopeso_acm_supervisado_df)
+
+```
+
+Escribimos nuestros dataframes en archivos csv
+```{r}
+write.csv(
+  df_bajopeso_train,
+  "resources/bajopeso_train.csv", 
+  row.names = FALSE
+)
+write.csv(
+  df_bajopeso_val,
+  "resources/bajopeso_val.csv", 
+  row.names = FALSE
+)
+
+write.csv(
+  df_bajopeso_train_acm,
+  "resources/bajopeso_train_acm.csv", 
+  row.names = FALSE
+)
+write.csv(
+  df_bajopeso_val_acm,
+  "resources/bajopeso_val_acm.csv", 
+  row.names = FALSE
+)
+
+```
+
+Cargamos los datasets de train y validation de nuestros archivos ya generados
+```{r}
+df_bajopeso_train = read.csv("resources/bajopeso_train.csv")
+df_bajopeso_train$LOW = as.factor(df_bajopeso_train$LOW)
+
+df_bajopeso_val = read.csv("resources/bajopeso_val.csv")
+df_bajopeso_val$LOW = as.factor(df_bajopeso_val$LOW)
+
+df_bajopeso_train_acm = read.csv("resources/bajopeso_train_acm.csv")
+df_bajopeso_train_acm$LOW = as.factor(df_bajopeso_train_acm$LOW)
+
+df_bajopeso_val_acm = read.csv("resources/bajopeso_val_acm.csv")
+df_bajopeso_val_acm$LOW = as.factor(df_bajopeso_val_acm$LOW)
+```
+
+## SVM
+Busco analizar y tunear que hiperparámetros fitean mejor con mi modelo
+```{r}
+svm_cv <- tune(
+  "svm",
+  as.factor(LOW) ~., 
+  data = df_bajopeso_train, 
+  kernel = 'radial',
+  ranges = list(
+    cost = c(0.001, 0.01, 0.1, 1, 5, 10, 20),
+    gamma = c(0.5, 1, 2, 3, 4, 5, 10)
+  )
+)
+best_svm_cost = svm_cv$best.parameters$cost
+best_svm_gamma = svm_cv$best.parameters$gamma
+```
+
+Entrenamos nuestros modelos
+```{r echo=TRUE}
+# TODO probar distintos kernels
+# -Kernel Lineal
+# -Kernel Polinomial de Grado
+# -Kernel Sigmoideo
+# -Kernel Gaussiano
+
+#Modelo support vector machine svm
+modelo_svm_radial = svm(
+  as.factor(LOW) ~.,
+  data=df_bajopeso_train,
+  method="C-classification",
+  kernel="radial",
+  cost=1,
+  gamma=0.9
+)
+
+#Modelo support vector machine svm
+modelo_svm_radial_acm = svm(
+  as.factor(LOW) ~.,
+  data=df_bajopeso_train_acm,
+  method="C-classification",
+  kernel="radial",
+  cost=1,
+  gamma=0.9
+)
+```
+
+Analizamos su perfomance en entrenamiento
+```{r}
+pred_svm = predict(
+  modelo_svm_radial, 
+  df_bajopeso_train
+)
+
+table(
+  df_bajopeso_train$LOW, 
+  pred_svm, 
+  dnn = c("Clase real", "Clase predicha")
+)
+
+error_svm <- mean(df_bajopeso_train$LOW!= pred_svm) * 100
+error_svm #10.28%
+```
+
+Generación la matriz de confusión para la clasificación SVM en entrenamiento
+```{r echo=TRUE}
+a = factor( pred_svm, levels=c("1","0") )
+b = factor( df_bajopeso_train$LOW, levels=c("1","0") )
+confusion_svm = confusionMatrix(
+  data = a, 
+  reference = b
+)
+confusion_svm
+
+```
+
+Analizamos la performance del modelo ACM en entrenamiento
+```{r}
+pred_svm_acm=predict(
+  modelo_svm_radial_acm, 
+  df_bajopeso_train_acm
+)
+
+table(
+  df_bajopeso_train_acm$LOW, 
+  pred_svm_acm, 
+  dnn = c("Clase real", "Clase predicha")
+)
+
+error_svm <- mean(df_bajopeso_train_acm$LOW!= pred_svm_acm) * 100
+error_svm #17.76%
+```
+
+Generación la matriz de confusión para la clasificación SVM en entrenamiento con los datos de las Dimensiones
+```{r echo=TRUE}
+a = factor( pred_svm_acm, levels=c("1","0") )
+b = factor( df_bajopeso_train_acm$LOW, levels=c("1","0") )
+confusion_svm_acm = confusionMatrix(
+  data = a, 
+  reference = b
+)
+confusion_svm_acm
+```
+
+Analizamos SVM en validación
+```{r echo=TRUE}
+#Modelo support vector machine svm
+pred_svm_val = predict(
+  modelo_svm_radial,
+  df_bajopeso_val
+)
+
+table(
+  df_bajopeso_val$LOW, 
+  pred_svm_val, 
+  dnn = c("Clase real", "Clase predicha")
+)
+
+error_svm<- mean(df_bajopeso_val$LOW!= pred_svm_val) * 100
+error_svm
+# 25%
+```
+
+Matriz de confusión SVM en validación
+```{r echo=TRUE}
+a = factor( pred_svm_val, levels=c("1","0") )
+b = factor( df_bajopeso_val$LOW, levels=c("1","0") )
+confusion_svm = confusionMatrix(
+  data = a, 
+  reference = b
+)
+confusion_svm
+```
+
+Analizamos SVM en validación para el modelo ACM
+```{r echo=TRUE}
+#Modelo support vector machine svm
+pred_svm_val_acm = predict(
+  modelo_svm_radial_acm,
+  df_bajopeso_val_acm
+)
+
+table(
+  df_bajopeso_val_acm$LOW, 
+  pred_svm_val_acm, 
+  dnn = c("Clase real", "Clase predicha")
+)
+
+error_svm<- mean(df_bajopeso_val_acm$LOW!= pred_svm_val_acm) * 100
+error_svm
+# 29.55%
+```
+
+Matriz de confusión SVM en validación para ACM
+```{r echo=TRUE}
+a = factor( pred_svm_val_acm, levels=c("1","0") )
+b = factor( df_bajopeso_val_acm$LOW, levels=c("1","0") )
+confusion_svm = confusionMatrix(
+  data = a, 
+  reference = b
+)
+confusion_svm
+```
+
+## Regresión Logística
+Modelo de Regresión logística con categóricas
+```{r echo=TRUE}
+df_bajopeso_train_factorizado = df_bajopeso_train
+df_bajopeso_train_factorizado[names(df_bajopeso_train_factorizado)] <- lapply(df_bajopeso_train_factorizado[names(df_bajopeso_train_factorizado)], factor)
+
+df_bajopeso_val_factorizado = df_bajopeso_val
+df_bajopeso_val_factorizado[names(df_bajopeso_val_factorizado)] <- lapply(df_bajopeso_val_factorizado[names(df_bajopeso_val_factorizado)], factor)
+
+modelo_lg4 <- glm(
+  as.factor(df_bajopeso_train_factorizado$LOW) ~ . ,
+  data = df_bajopeso_train_factorizado,
+  family=binomial
+)
+
+summary(modelo_lg4)
+```
+
+Ejecutamos nuestra clasificación con regreción logística para los datos de entrenamiento
+```{r echo=TRUE}
+# TODO test de Wall para saber si es importante usar variables numéricas
+# TODO analizar uso de probit o logit
+pred4_lg_train  <- predict(
+  modelo_lg4,
+  type = "response"
+)
+
+clase4_lg_train = ifelse(pred4_lg_train>0.5,1,0)  
+
+table(
+  df_bajopeso_train_factorizado$LOW, 
+  clase4_lg_train, 
+  dnn = c("Clase real","Clase predicha")
+)
+```
+
+Matriz de confusión Regresión logística entrenamiento
+```{r echo=TRUE}
+a = factor( clase4_lg_train, levels=c("1","0") )
+b = factor( df_bajopeso_train_factorizado$LOW, levels=c("1","0") )
+confusion_logit = confusionMatrix(a,b)
+confusion_logit
+```
+
+Predicción en validación
+```{r echo=TRUE}
+pred4_lg_val  <- predict(
+  modelo_lg4,
+  df_bajopeso_val_factorizado, 
+  type="response"
+)
+clase4_lg_val = ifelse(pred4_lg_val>0.5,1,0)  
+
+table(
+  df_bajopeso_val_factorizado$LOW, 
+  clase4_lg_val, 
+  dnn = c("Clase real","Clase predicha")
+)
+```
+
+Matriz de confusión Regresión logística en validación
+```{r echo=TRUE}
+a = factor( clase4_lg_val, levels=c("1","0") )
+b = factor( df_bajopeso_val_factorizado$LOW, levels=c("1","0") )
+confusion_logit = confusionMatrix(a, b)
+confusion_logit
+```
+
+#-----Evaluación de Clasificadores-----
+Comparamos predicciones en nuestros modelos
+```{r}
+classification_results = data_frame(
+  Technique = c(
+    "SVM (radial)",
+    "SVM c/ACM (radial)",
+    "Regresión Logística"
+  ),
+  Accuracy_Train = c(
+    "0.8972",
+    "0.8224",
+    "0.7383"
+  ),
+  Sensitivity_Train = c(
+    "0.6333",
+    "0.3667",
+    "0.33333"
+  ),
+  Accuracy_Val = c(
+    "0.75",
+    "0.7045",
+    "0.75"
+  ),
+  Sensitivity_Val = c(
+    "0.25000",
+    "0.08333",
+    "0.33333"
+  )
+)
+classification_results
+```
+
+
+Comparación de predicciones de diferentes modelos:
+```{r}
+predicciones_varias = cbind(
+  pred4_lg_val,
+  pred_svm_val,
+  pred_svm_val_acm
+)
+cor(predicciones_varias)
+```
+
+```{r}
+corrplot(
+  cor(predicciones_varias),
+  method = "number",
+  col = brewer.pal(n = 8, "RdYlBu")
+) 
+```
+
+#ROC y AUC
+```{r}
+# TODO vemos de hacerlo ???
+p1 <- prediction(
+  as.numeric(pred_svm_val),
+  as.numeric(df_bajopeso_val$LOW)
+) %>%
+  performance(
+    measure = "tpr",
+    x.measure = "fpr"
+  )
+
+p2 <- prediction(
+  as.numeric(pred4_lg_val), 
+  as.numeric(df_bajopeso_val$LOW)
+) %>%
+  performance(
+    measure = "tpr", 
+    x.measure = "fpr"
+  )
+
+plot(p1, col = "red")
+plot(p2, add = TRUE, col = "blue")
+
+legend(
+  x = "bottomright",
+  legend =  c("SVM","Regresión Logística"),
+  fill = c("red","blue","darkgreen","gold","black"), 
+  title = "Modelos"
+)
+title(main = "Curvas ROC")
+
+#AUC
+auc= data.frame( 
+  c(
+    round(
+      as.numeric(
+        performance(
+          prediction(
+            as.numeric(pred_svm_val),
+            as.numeric(df_bajopeso_val$LOW)
+          ), 
+          measure = "auc"
+        )@y.values
+      ),
+      4
+    ),
+    round(
+      as.numeric(
+        performance(
+          prediction(
+            pred4_lg_val, 
+            df_bajopeso_val$LOW
+          ), 
+          measure = "auc"
+        )@y.values
+      ),
+      4
+    )
+  )
+)
+rotulo = data.frame(c("SVM","Regresión Logística"))
+tabla= cbind(rotulo,auc)
+names(tabla)=c("Modelo","AUC")
+tabla
+```
